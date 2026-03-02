@@ -81,32 +81,68 @@ pub fn load_wasm_fonts(
     Ok(())
 }
 
-/// Resolve a generic family name: use the configured value if it exists in
-/// fontdb, otherwise fall back to the first available font.
-fn resolve_generic_family(configured: &str, fontdb: &Database) -> String {
-    if !configured.is_empty()
-        && fontdb
-            .faces()
-            .any(|face| face.families.iter().any(|f| f.0 == configured))
-    {
+/// Try the configured value first, then well-known alternatives, then the
+/// first available font in fontdb.  This mirrors what browsers do: the
+/// default "Arial" won't exist on most Linux boxes, so we also probe
+/// Liberation Sans, Noto Sans, DejaVu Sans, etc.
+fn resolve_generic_family(configured: &str, fallbacks: &[&str], fontdb: &Database) -> String {
+    let has_family = |name: &str| -> bool {
+        !name.is_empty()
+            && fontdb
+                .faces()
+                .any(|face| face.families.iter().any(|f| f.0 == name))
+    };
+
+    if has_family(configured) {
         return configured.to_string();
     }
+    for name in fallbacks {
+        if has_family(name) {
+            return name.to_string();
+        }
+    }
     get_first_font_family_or_fallback(fontdb)
+}
+
+// Well-known font names for each CSS generic family, covering Windows,
+// macOS, and common Linux distributions.
+const SANS_SERIF_FALLBACKS: &[&str] = &[
+    "Arial", "Helvetica", "Liberation Sans", "Noto Sans", "DejaVu Sans",
+    "Droid Sans", "Adwaita Sans",
+];
+const SERIF_FALLBACKS: &[&str] = &[
+    "Times New Roman", "Liberation Serif", "Noto Serif", "DejaVu Serif",
+    "Droid Serif",
+];
+const MONOSPACE_FALLBACKS: &[&str] = &[
+    "Courier New", "Liberation Mono", "Noto Sans Mono", "DejaVu Sans Mono",
+    "Droid Sans Mono", "Adwaita Mono",
+];
+const CURSIVE_FALLBACKS: &[&str] = &[
+    "Comic Sans MS", "Segoe Script",
+];
+const FANTASY_FALLBACKS: &[&str] = &[
+    "Impact", "Papyrus",
+];
+
+fn set_generic_families(font_options: &JsFontOptions, fontdb: &mut Database) {
+    fontdb.set_serif_family(
+        &resolve_generic_family(&font_options.serif_family, SERIF_FALLBACKS, fontdb));
+    fontdb.set_sans_serif_family(
+        &resolve_generic_family(&font_options.sans_serif_family, SANS_SERIF_FALLBACKS, fontdb));
+    fontdb.set_cursive_family(
+        &resolve_generic_family(&font_options.cursive_family, CURSIVE_FALLBACKS, fontdb));
+    fontdb.set_fantasy_family(
+        &resolve_generic_family(&font_options.fantasy_family, FANTASY_FALLBACKS, fontdb));
+    fontdb.set_monospace_family(
+        &resolve_generic_family(&font_options.monospace_family, MONOSPACE_FALLBACKS, fontdb));
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn set_font_families(font_options: &JsFontOptions, fontdb: &mut Database) {
     let default_font_family = font_options.default_font_family.clone().trim().to_string();
 
-    // Use the per-generic-family settings from JsFontOptions so that CSS generic
-    // families (serif, sans-serif, …) resolve to well-known fonts (e.g. Arial)
-    // instead of a random first-loaded font that may lack common glyphs.
-    // If the configured font isn't available, fall back to the first loaded font.
-    fontdb.set_serif_family(&resolve_generic_family(&font_options.serif_family, fontdb));
-    fontdb.set_sans_serif_family(&resolve_generic_family(&font_options.sans_serif_family, fontdb));
-    fontdb.set_cursive_family(&resolve_generic_family(&font_options.cursive_family, fontdb));
-    fontdb.set_fantasy_family(&resolve_generic_family(&font_options.fantasy_family, fontdb));
-    fontdb.set_monospace_family(&resolve_generic_family(&font_options.monospace_family, fontdb));
+    set_generic_families(font_options, fontdb);
 
     debug!("📝 default_font_family = '{default_font_family}'");
 
@@ -122,11 +158,7 @@ fn set_wasm_font_families(
     fontdb: &mut Database,
     _font_buffers: Option<js_sys::Array>,
 ) {
-    fontdb.set_serif_family(&resolve_generic_family(&font_options.serif_family, fontdb));
-    fontdb.set_sans_serif_family(&resolve_generic_family(&font_options.sans_serif_family, fontdb));
-    fontdb.set_cursive_family(&resolve_generic_family(&font_options.cursive_family, fontdb));
-    fontdb.set_fantasy_family(&resolve_generic_family(&font_options.fantasy_family, fontdb));
-    fontdb.set_monospace_family(&resolve_generic_family(&font_options.monospace_family, fontdb));
+    set_generic_families(font_options, fontdb);
 }
 
 /// Log whether the specified default font family exists in the database.

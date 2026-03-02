@@ -363,6 +363,30 @@ test('sansSerifFamily option should control sans-serif generic family', (t) => {
   t.deepEqual(sansSerifPixels.toJSON().data, directPixels.toJSON().data)
 })
 
+test('sans-serif should render punctuation like "." without dropping glyphs', (t) => {
+  // Before the fix, sans-serif could resolve to "Font Awesome 6 Brands"
+  // (the first font in fontdb), an icon font that lacks basic Latin glyphs.
+  // This caused "7.4B" and "74B" to render identically — the dot was invisible.
+  const makeSvg = (text: string) => `
+  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40">
+    <text fill="blue" font-size="24" x="10" y="30" font-family="sans-serif">${text}</text>
+  </svg>`
+
+  const opts = {
+    font: {
+      loadSystemFonts: true,
+      fontDirs: ['/usr/share/fonts/'],
+    },
+  }
+
+  const withDot = new Resvg(makeSvg('7.4B'), opts).render().pixels
+  const withoutDot = new Resvg(makeSvg('74B'), opts).render().pixels
+
+  // If the font can render ".", these two must produce different pixels.
+  // With the bug they were identical (dot was invisible).
+  t.notDeepEqual(withDot.toJSON().data, withoutDot.toJSON().data)
+})
+
 test('Async rendering', async (t) => {
   const filePath = '../example/text.svg'
   const svg = await fs.readFile(join(__dirname, filePath))
