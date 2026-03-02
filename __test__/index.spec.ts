@@ -334,6 +334,35 @@ test('Test defaultFontFamily', (t) => {
   t.true((matchPixels?.length ?? 0) > 1500)
 })
 
+test('sansSerifFamily option should control sans-serif generic family', (t) => {
+  // When sansSerifFamily is set, the CSS generic family "sans-serif" should
+  // resolve to that font. Before the fix, set_font_families() ignored the
+  // configured generic family values and set ALL generic families to the
+  // first font loaded into fontdb (e.g. "Font Awesome 6 Brands"), causing
+  // missing glyphs for text like "7.4B" → "74B".
+  const sansSerifSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="300" height="60" viewBox="0 0 300 60">
+    <text fill="white" font-size="24" x="10" y="40" font-family="sans-serif">Hello 7.4B</text>
+  </svg>`
+  const directSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="300" height="60" viewBox="0 0 300 60">
+    <text fill="white" font-size="24" x="10" y="40" font-family="Liberation Sans">Hello 7.4B</text>
+  </svg>`
+
+  const opts = {
+    font: {
+      loadSystemFonts: true,
+      sansSerifFamily: 'Liberation Sans',
+    },
+  }
+
+  const sansSerifPixels = new Resvg(sansSerifSvg, opts).render().pixels
+  const directPixels = new Resvg(directSvg, opts).render().pixels
+
+  // sans-serif should resolve to Liberation Sans, producing identical output
+  t.deepEqual(sansSerifPixels.toJSON().data, directPixels.toJSON().data)
+})
+
 test('Async rendering', async (t) => {
   const filePath = '../example/text.svg'
   const svg = await fs.readFile(join(__dirname, filePath))
