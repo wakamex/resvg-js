@@ -354,8 +354,8 @@ test('sansSerifFamily option should control sans-serif generic family', (t) => {
   // Render with a non-existent font name to get the per-character-fallback baseline.
   // A real font produces different output from this baseline.
   const fallbackPixels = Buffer.from(
-    new Resvg(makeSvg('ZZZZZ_NonExistent_Font_12345'), { font: { loadSystemFonts: true } })
-      .render().pixels.toJSON().data,
+    new Resvg(makeSvg('ZZZZZ_NonExistent_Font_12345'), { font: { loadSystemFonts: true } }).render().pixels.toJSON()
+      .data,
   )
 
   let fontName: string | undefined
