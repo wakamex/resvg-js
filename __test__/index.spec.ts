@@ -340,26 +340,55 @@ test('sansSerifFamily option should control sans-serif generic family', (t) => {
   // configured generic family values and set ALL generic families to the
   // first font loaded into fontdb (e.g. "Font Awesome 6 Brands"), causing
   // missing glyphs for text like "7.4B" → "74B".
-  const sansSerifSvg = `
+  //
+  // Probe for an available sans-serif font across platforms:
+  //   Linux: Liberation Sans / DejaVu Sans / Noto Sans / Droid Sans
+  //   macOS: Helvetica / Arial
+  //   Windows: Arial
+  const candidates = ['Arial', 'Helvetica', 'Liberation Sans', 'DejaVu Sans', 'Noto Sans', 'Droid Sans']
+  const makeSvg = (family: string) => `
   <svg xmlns="http://www.w3.org/2000/svg" width="300" height="60" viewBox="0 0 300 60">
-    <text fill="white" font-size="24" x="10" y="40" font-family="sans-serif">Hello 7.4B</text>
+    <text fill="white" font-size="24" x="10" y="40" font-family="${family}">Hello 7.4B</text>
   </svg>`
-  const directSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="300" height="60" viewBox="0 0 300 60">
-    <text fill="white" font-size="24" x="10" y="40" font-family="Liberation Sans">Hello 7.4B</text>
-  </svg>`
+
+  // Render with a non-existent font name to get the per-character-fallback baseline.
+  // A real font produces different output from this baseline.
+  const fallbackPixels = Buffer.from(
+    new Resvg(makeSvg('ZZZZZ_NonExistent_Font_12345'), { font: { loadSystemFonts: true } })
+      .render().pixels.toJSON().data,
+  )
+
+  let fontName: string | undefined
+  for (const name of candidates) {
+    const pixels = Buffer.from(
+      new Resvg(makeSvg(name), { font: { loadSystemFonts: true } }).render().pixels.toJSON().data,
+    )
+    if (Buffer.compare(pixels, fallbackPixels) !== 0) {
+      fontName = name
+      break
+    }
+  }
+
+  if (!fontName) {
+    t.log('Skipping: no suitable sans-serif font found on this system')
+    t.pass()
+    return
+  }
+
+  const sansSerifSvg = makeSvg('sans-serif')
+  const directSvg = makeSvg(fontName)
 
   const opts = {
     font: {
       loadSystemFonts: true,
-      sansSerifFamily: 'Liberation Sans',
+      sansSerifFamily: fontName,
     },
   }
 
   const sansSerifPixels = new Resvg(sansSerifSvg, opts).render().pixels
   const directPixels = new Resvg(directSvg, opts).render().pixels
 
-  // sans-serif should resolve to Liberation Sans, producing identical output
+  // sans-serif should resolve to the chosen font, producing identical output
   t.deepEqual(sansSerifPixels.toJSON().data, directPixels.toJSON().data)
 })
 
