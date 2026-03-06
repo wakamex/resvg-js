@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::collections::HashSet;
+
 use crate::options::*;
 use resvg::usvg::fontdb::{Database, Language};
 
@@ -81,29 +83,6 @@ pub fn load_wasm_fonts(
     Ok(())
 }
 
-/// Try the configured value first, then well-known alternatives, then the
-/// first available font in fontdb.  This mirrors what browsers do: the
-/// default "Arial" won't exist on most Linux boxes, so we also probe
-/// Liberation Sans, Noto Sans, DejaVu Sans, etc.
-fn resolve_generic_family(configured: &str, fallbacks: &[&str], fontdb: &Database) -> String {
-    let has_family = |name: &str| -> bool {
-        !name.is_empty()
-            && fontdb
-                .faces()
-                .any(|face| face.families.iter().any(|f| f.0 == name))
-    };
-
-    if has_family(configured) {
-        return configured.to_string();
-    }
-    for name in fallbacks {
-        if has_family(name) {
-            return name.to_string();
-        }
-    }
-    get_first_font_family_or_fallback(fontdb)
-}
-
 // Well-known font names for each CSS generic family, covering Windows,
 // macOS, and common Linux distributions.
 const SANS_SERIF_FALLBACKS: &[&str] = &[
@@ -133,32 +112,40 @@ const MONOSPACE_FALLBACKS: &[&str] = &[
 const CURSIVE_FALLBACKS: &[&str] = &["Comic Sans MS", "Segoe Script"];
 const FANTASY_FALLBACKS: &[&str] = &["Impact", "Papyrus"];
 
+/// Set each CSS generic family to the configured value if available, then
+/// probe well-known alternatives (mirroring browser behaviour), then fall
+/// back to the first font in fontdb.
 fn set_generic_families(font_options: &JsFontOptions, fontdb: &mut Database) {
-    fontdb.set_serif_family(&resolve_generic_family(
-        &font_options.serif_family,
-        SERIF_FALLBACKS,
-        fontdb,
-    ));
-    fontdb.set_sans_serif_family(&resolve_generic_family(
-        &font_options.sans_serif_family,
-        SANS_SERIF_FALLBACKS,
-        fontdb,
-    ));
-    fontdb.set_cursive_family(&resolve_generic_family(
-        &font_options.cursive_family,
-        CURSIVE_FALLBACKS,
-        fontdb,
-    ));
-    fontdb.set_fantasy_family(&resolve_generic_family(
-        &font_options.fantasy_family,
-        FANTASY_FALLBACKS,
-        fontdb,
-    ));
-    fontdb.set_monospace_family(&resolve_generic_family(
-        &font_options.monospace_family,
-        MONOSPACE_FALLBACKS,
-        fontdb,
-    ));
+    let available: HashSet<&str> = fontdb
+        .faces()
+        .flat_map(|face| face.families.iter().map(|f| f.0.as_str()))
+        .collect();
+    let first_fallback = get_first_font_family_or_fallback(fontdb);
+
+    let resolve = |configured: &str, fallbacks: &[&str]| -> String {
+        if !configured.is_empty() && available.contains(configured) {
+            return configured.to_string();
+        }
+        for name in fallbacks {
+            if available.contains(name) {
+                return (*name).to_string();
+            }
+        }
+        first_fallback.clone()
+    };
+
+    // Resolve all families before mutating fontdb (avoids borrow conflict).
+    let serif = resolve(&font_options.serif_family, SERIF_FALLBACKS);
+    let sans_serif = resolve(&font_options.sans_serif_family, SANS_SERIF_FALLBACKS);
+    let cursive = resolve(&font_options.cursive_family, CURSIVE_FALLBACKS);
+    let fantasy = resolve(&font_options.fantasy_family, FANTASY_FALLBACKS);
+    let monospace = resolve(&font_options.monospace_family, MONOSPACE_FALLBACKS);
+
+    fontdb.set_serif_family(&serif);
+    fontdb.set_sans_serif_family(&sans_serif);
+    fontdb.set_cursive_family(&cursive);
+    fontdb.set_fantasy_family(&fantasy);
+    fontdb.set_monospace_family(&monospace);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
