@@ -146,7 +146,6 @@ fn set_font_families(font_options: &JsFontOptions, fontdb: &mut Database) {
 
     debug!("📝 default_font_family = '{default_font_family}'");
 
-    #[cfg(not(target_arch = "wasm32"))]
     if !default_font_family.is_empty() {
         find_and_debug_font_path(fontdb, default_font_family.as_str());
     }
