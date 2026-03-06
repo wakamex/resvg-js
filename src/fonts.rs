@@ -107,35 +107,58 @@ fn resolve_generic_family(configured: &str, fallbacks: &[&str], fontdb: &Databas
 // Well-known font names for each CSS generic family, covering Windows,
 // macOS, and common Linux distributions.
 const SANS_SERIF_FALLBACKS: &[&str] = &[
-    "Arial", "Helvetica", "Liberation Sans", "Noto Sans", "DejaVu Sans",
-    "Droid Sans", "Adwaita Sans",
+    "Arial",
+    "Helvetica",
+    "Liberation Sans",
+    "Noto Sans",
+    "DejaVu Sans",
+    "Droid Sans",
+    "Adwaita Sans",
 ];
 const SERIF_FALLBACKS: &[&str] = &[
-    "Times New Roman", "Liberation Serif", "Noto Serif", "DejaVu Serif",
+    "Times New Roman",
+    "Liberation Serif",
+    "Noto Serif",
+    "DejaVu Serif",
     "Droid Serif",
 ];
 const MONOSPACE_FALLBACKS: &[&str] = &[
-    "Courier New", "Liberation Mono", "Noto Sans Mono", "DejaVu Sans Mono",
-    "Droid Sans Mono", "Adwaita Mono",
+    "Courier New",
+    "Liberation Mono",
+    "Noto Sans Mono",
+    "DejaVu Sans Mono",
+    "Droid Sans Mono",
+    "Adwaita Mono",
 ];
-const CURSIVE_FALLBACKS: &[&str] = &[
-    "Comic Sans MS", "Segoe Script",
-];
-const FANTASY_FALLBACKS: &[&str] = &[
-    "Impact", "Papyrus",
-];
+const CURSIVE_FALLBACKS: &[&str] = &["Comic Sans MS", "Segoe Script"];
+const FANTASY_FALLBACKS: &[&str] = &["Impact", "Papyrus"];
 
 fn set_generic_families(font_options: &JsFontOptions, fontdb: &mut Database) {
-    fontdb.set_serif_family(
-        &resolve_generic_family(&font_options.serif_family, SERIF_FALLBACKS, fontdb));
-    fontdb.set_sans_serif_family(
-        &resolve_generic_family(&font_options.sans_serif_family, SANS_SERIF_FALLBACKS, fontdb));
-    fontdb.set_cursive_family(
-        &resolve_generic_family(&font_options.cursive_family, CURSIVE_FALLBACKS, fontdb));
-    fontdb.set_fantasy_family(
-        &resolve_generic_family(&font_options.fantasy_family, FANTASY_FALLBACKS, fontdb));
-    fontdb.set_monospace_family(
-        &resolve_generic_family(&font_options.monospace_family, MONOSPACE_FALLBACKS, fontdb));
+    fontdb.set_serif_family(&resolve_generic_family(
+        &font_options.serif_family,
+        SERIF_FALLBACKS,
+        fontdb,
+    ));
+    fontdb.set_sans_serif_family(&resolve_generic_family(
+        &font_options.sans_serif_family,
+        SANS_SERIF_FALLBACKS,
+        fontdb,
+    ));
+    fontdb.set_cursive_family(&resolve_generic_family(
+        &font_options.cursive_family,
+        CURSIVE_FALLBACKS,
+        fontdb,
+    ));
+    fontdb.set_fantasy_family(&resolve_generic_family(
+        &font_options.fantasy_family,
+        FANTASY_FALLBACKS,
+        fontdb,
+    ));
+    fontdb.set_monospace_family(&resolve_generic_family(
+        &font_options.monospace_family,
+        MONOSPACE_FALLBACKS,
+        fontdb,
+    ));
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -183,9 +206,7 @@ fn find_and_debug_font_path(fontdb: &Database, font_family: &str) {
             }
         }
         None => {
-            warn!(
-                "Warning: The default font-family '{font_family}' not found."
-            );
+            warn!("Warning: The default font-family '{font_family}' not found.");
         }
     }
 }
